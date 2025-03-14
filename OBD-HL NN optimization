@@ -1,0 +1,58 @@
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+from keras.callbacks import EarlyStopping
+from sklearn.metrics import mean_squared_error
+import numpy as np
+from numpy import loadtxt
+from sklearn.preprocessing import MinMaxScaler
+
+dataset = loadtxt('Basic McKee data.csv', delimiter=',')
+
+# Define the input and output variables
+X = dataset[:,0:5]
+y = dataset[:,5]
+
+# Reshape arrays into rows and cols
+X = X.reshape(3009, 5)
+y = y.reshape(3009, 1)
+
+# Scale the input and output variables
+scale_X = MinMaxScaler()
+X = scale_X.fit_transform(X)
+scale_y = MinMaxScaler()
+y = scale_y.fit_transform(y)
+
+# Set the boundaries for the number of neurons in the hidden layer
+min_neurons = 1
+max_neurons = 150
+
+# Define the Empirical Formulae for optimal Brain Damage
+def empirical_formulae(n, alpha=2):
+    return int(round(n/(alpha+np.log10(n)), 0))
+
+# Define the function to create and evaluate the model with a given number of neurons in the hidden layer
+def evaluate_model(n):
+    # Create the model
+    model = Sequential()
+    model.add(Dense(n, input_dim=5, activation='relu'))
+    model.add(Dense(1, activation='linear'))
+    # Compile the model
+    model.compile(loss='mse', optimizer=Adam(lr=0.001))
+    # Fit the model
+    early_stopping = EarlyStopping(monitor='loss', patience=10, verbose=1, mode='min')
+    model.fit(X, y, epochs=500, batch_size=32, callbacks=[early_stopping], verbose=0)
+    # Evaluate the model
+    y_pred = model.predict(X)
+    mse = mean_squared_error(y, y_pred)
+    return mse
+
+# Find the optimal number of neurons using Empirical Formulae with optimal Brain Damage
+neurons_list = list(range(min_neurons, max_neurons+1))
+mse_list = []
+for n in neurons_list:
+    neurons = empirical_formulae(n)
+    mse = evaluate_model(neurons)
+    mse_list.append(mse)
+optimal_neurons = empirical_formulae(neurons_list[np.argmin(mse_list)])
+print('Optimal number of neurons:', optimal_neurons)
