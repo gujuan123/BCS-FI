@@ -1,0 +1,45 @@
+import numpy as np
+from sklearn.neural_network import MLPRegressor
+from sklearn.metrics import mean_squared_error
+from scipy.stats import norm
+from math import log
+
+# Load the dataset
+dataset = np.loadtxt('Basic McKee data.csv', delimiter=',')
+
+# Split into input (X) and output (y) variables
+X = dataset[:,0:5]
+y = dataset[:,5]
+
+# Reshape arrays into rows and cols
+X = X.reshape(3009, 5)
+y = y.reshape(3009, 1)
+
+# Scale the input and output variables
+scale_X = MinMaxScaler()
+X = scale_X.fit_transform(X)
+scale_y = MinMaxScaler()
+y = scale_y.fit_transform(y)
+
+# Information Criteria method with Bayesian Information Criterion (BIC)
+def bic(neurons):
+    model = MLPRegressor(hidden_layer_sizes=(neurons,), activation='logistic', max_iter=1000)
+    model.fit(X, y)
+    mse = mean_squared_error(y, model.predict(X))
+    k = (5*neurons) + 1  # 5 is the number of input features
+    n = len(X)
+    bic_score = n*log(mse) + k*log(n)
+    return bic_score
+
+# Define the range of neurons to search
+min_neurons = 1
+max_neurons = 150
+
+# Find the optimal number of neurons using BIC
+bic_scores = []
+for neurons in range(min_neurons, max_neurons+1):
+    score = bic(neurons)
+    bic_scores.append(score)
+optimal_neurons = np.argmin(bic_scores) + min_neurons
+
+print('Optimal number of neurons:', optimal_neurons)
