@@ -1,0 +1,81 @@
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import cross_val_score
+from sklearn.neural_network import MLPRegressor
+from bayes_opt import BayesianOptimization
+from numpy import loadtxt
+
+# Load the dataset
+dataset = loadtxt('Basic McKee data.csv', delimiter=',')
+
+# Split into input (X) and output (y) variables
+X = dataset[:, 0:5]
+y = dataset[:, 5]
+
+# Reshape arrays into rows and cols
+X = X.reshape(3009, 5)
+y = y.reshape(3009, 1)
+
+# Scale the input and output variables
+scale_X = MinMaxScaler()
+X = scale_X.fit_transform(X)
+scale_y = MinMaxScaler()
+y = scale_y.fit_transform(y)
+
+# Define the ANN architecture
+def create_model(hidden_layers, hidden_neurons):
+    hidden_neurons = int(hidden_neurons)  # Cast to integer
+    hidden_layers = int(hidden_layers)  # Cast to integer
+    
+    # Create a list to store the number of neurons in each hidden layer
+    hidden_layer_sizes = [hidden_neurons] * hidden_layers
+    
+    model = MLPRegressor(hidden_layer_sizes=tuple(hidden_layer_sizes),
+                         activation='relu',
+                         solver='adam',
+                         alpha=0.01,
+                         batch_size=32,
+                         learning_rate='adaptive',
+                         max_iter=1000,
+                         random_state=42)
+    return model
+
+# Define the function to optimize
+def evaluate_model(hidden_layers, hidden_neurons):
+    model = create_model(hidden_layers, hidden_neurons)
+    scores = cross_val_score(model, X, y, cv=5, scoring='neg_mean_squared_error')
+    return np.mean(scores)
+
+# Define the hyperparameter search space
+pbounds = {'hidden_layers': (1, 3), 'hidden_neurons': (1, 145)}
+
+# Define the Bayesian optimization algorithm
+optimizer = BayesianOptimization(
+    f=evaluate_model,
+    pbounds=pbounds,
+    verbose=2,
+    random_state=42
+)
+
+# Run the optimization
+optimizer.maximize(init_points=10, n_iter=25)
+
+# Print all the tested combinations and their results
+for i, result in enumerate(optimizer.res):
+    hidden_layers_int = round(result['params']['hidden_layers'])
+    hidden_neurons_int = round(result['params']['hidden_neurons'])
+    target = result['target']
+    print(f"| {i+1:<4} | {target:<9.6f} | {hidden_layers_int:<10} | {hidden_neurons_int:<9} |")
+
+    # Retrieve the number of neurons in each hidden layer
+    hidden_layers = hidden_layers_int
+    hidden_neurons = hidden_neurons_int
+    hidden_layer_neurons = [hidden_neurons] * hidden_layers
+
+    # Print the number of neurons in each hidden layer
+    print("Number of neurons in each hidden layer:")
+    for layer, neurons in enumerate(hidden_layer_neurons):
+        print(f"Hidden Layer {layer+1}: {neurons}")
+
+# Print the optimal results
+print(optimizer.max)
